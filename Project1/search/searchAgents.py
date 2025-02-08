@@ -508,9 +508,47 @@ def foodHeuristic(state: Tuple[Tuple, List[List]], problem: FoodSearchProblem):
     Subsequent calls to this heuristic can access
     problem.heuristicInfo['wallCount']
     """
+    '''Your Code:'''
+    """
+    改进的启发函数：
+    - 计算当前 Pacman 到所有食物中最近一个的曼哈顿距离
+    - 计算所有食物点构成的最小生成树（MST）的总代价
+    返回两者之和作为启发值
+    """
     position, foodGrid = state
-    "*** YOUR CODE HERE ***"
-    return 0
+    foodList = foodGrid.asList()
+    if not foodList:
+        return 0
+
+    # 计算当前点到所有食物的最小曼哈顿距离
+    minDistance = min(abs(position[0] - food[0]) + abs(position[1] - food[1]) for food in foodList)
+
+    # 如果只有一个食物，不需要构造 MST，直接返回
+    if len(foodList) == 1:
+        return minDistance
+
+    # 使用 Prim 算法计算食物点集合构成的 MST 代价
+    mstCost = 0
+    # 列表 copy，避免修改原列表
+    unvisited = foodList.copy()
+    # 随便选一个食物作为起点
+    current = unvisited.pop(0)
+    connected = [current]
+    while unvisited:
+        # 在 connected 与 unvisited 之间寻找最小曼哈顿距离的边
+        bestEdgeCost = float('inf')
+        bestFood = None
+        for c in connected:
+            for food in unvisited:
+                cost = abs(c[0] - food[0]) + abs(c[1] - food[1])
+                if cost < bestEdgeCost:
+                    bestEdgeCost = cost
+                    bestFood = food
+        mstCost += bestEdgeCost
+        connected.append(bestFood)
+        unvisited.remove(bestFood)
+
+    return minDistance + mstCost
 
 
 class ClosestDotSearchAgent(SearchAgent):
@@ -540,9 +578,9 @@ class ClosestDotSearchAgent(SearchAgent):
         food = gameState.getFood()
         walls = gameState.getWalls()
         problem = AnyFoodSearchProblem(gameState)
-
+        
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return search.bfs(problem)
 
 class AnyFoodSearchProblem(PositionSearchProblem):
     """
@@ -578,7 +616,7 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         x,y = state
 
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.food[x][y]
 
 def mazeDistance(point1: Tuple[int, int], point2: Tuple[int, int], gameState: pacman.GameState) -> int:
     """
