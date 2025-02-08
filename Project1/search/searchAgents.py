@@ -296,14 +296,21 @@ class CornersProblem(search.SearchProblem):
         space)
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
+        visited=0
+        start=self.startingPosition
+        for idx,corner in enumerate(self.corners):
+            if start==corner:
+                visited|=(1<<idx)
+        return (start,visited)
     def isGoalState(self, state: Any):
         """
         Returns whether this search state is a goal state of the problem.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        visited=state[1]
+        if visited==(1<<4)-1:
+            return True
+        return False
 
     def getSuccessors(self, state: Any):
         """
@@ -315,7 +322,6 @@ class CornersProblem(search.SearchProblem):
             state, 'action' is the action required to get there, and 'stepCost'
             is the incremental cost of expanding to that successor
         """
-
         successors = []
         for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
             # Add a successor state to the successor list if the action is legal
@@ -326,7 +332,17 @@ class CornersProblem(search.SearchProblem):
             #   hitsWall = self.walls[nextx][nexty]
 
             "*** YOUR CODE HERE ***"
-
+            (x,y),visited = state
+            dx, dy = Actions.directionToVector(action)
+            nextx, nexty = int(x + dx), int(y + dy)
+            if not self.walls[nextx][nexty]:
+                nextState = (nextx, nexty)
+                for idx,corner in enumerate(self.corners):
+                    if nextState==corner and visited>>idx&1==0:
+                        successors.append( ( (nextState,visited|1<<idx), action,1) )
+                        break
+                    if idx==3:
+                        successors.append( ( (nextState,visited), action, 1) )
         self._expanded += 1 # DO NOT CHANGE
         return successors
 
@@ -360,12 +376,53 @@ def cornersHeuristic(state: Any, problem: CornersProblem):
     """
     corners = problem.corners # These are the corner coordinates
     walls = problem.walls # These are the walls of the maze, as a Grid (game.py)
-
+    
     "*** YOUR CODE HERE ***"
-    return 0 # Default to trivial solution
+    #return 0 # Default to trivial solution
+    """
+    改进的启发函数：
+    （1）计算当前位置到所有未访问角落的曼哈顿距离的最小值；
+    （2）计算所有未访问角落之间构成的最小生成树（MST）（沿曼哈顿距离计算）代价；
+    返回两者之和作为启发值。
+    """
+    from itertools import combinations
+    corners = problem.corners
+    current_pos, visited_mask = state
 
+    # 找出未访问的角落
+    remaining = [corner for idx, corner in enumerate(corners) if not (visited_mask >> idx) & 1]
+    if not remaining:
+        return 0
 
+    # 计算当前位置到所有未访问角落的曼哈顿距离最小值
+    min_to_corner = min(abs(current_pos[0] - c[0]) + abs(current_pos[1] - c[1]) for c in remaining)
 
+    # 计算未访问角落之间的最小生成树（MST）代价
+    # 由于角落数量最多为 4 个，可以简单暴力计算所有边，再用并查集求 MST
+    edges = []
+    for (c1, c2) in combinations(remaining, 2):
+        dist = abs(c1[0] - c2[0]) + abs(c1[1] - c2[1])
+        edges.append((dist, c1, c2))
+    edges.sort(key=lambda x: x[0])
+
+    parent = {corner: corner for corner in remaining}
+    def find(c):
+        while parent[c] != c:
+            parent[c] = parent[parent[c]]
+            c = parent[c]
+        return c
+    def union(c1, c2):
+        root1 = find(c1)
+        root2 = find(c2)
+        parent[root2] = root1
+
+    mst_cost = 0
+    for cost, c1, c2 in edges:
+        if find(c1) != find(c2):
+            union(c1, c2)
+            mst_cost += cost
+
+    return min_to_corner + mst_cost
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
     def __init__(self):
