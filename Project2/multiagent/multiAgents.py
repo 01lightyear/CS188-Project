@@ -72,8 +72,6 @@ class ReflexAgent(Agent):
         newPos = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
-        newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
-        Ghostpos=successorGameState.getGhostPositions()
         "*** YOUR CODE HERE ***"
         score=successorGameState.getScore()
             # 食物得分：距离最近的食物越近越好
@@ -257,17 +255,92 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        '''min_value在此处仅仅表示ghost的随机移动而非最优行动(函数名从前面的方法复制而来的)'''
+        agentNum=gameState.getNumAgents()
+        def value(state, depth):
+            if depth == self.depth * agentNum or state.isWin() or state.isLose():
+                return self.evaluationFunction(state)
+            agentIndex = depth % agentNum
+            if agentIndex == 0:
+                return max_value(state, depth)
+            else:
+                return min_value(state, depth)
 
+        def max_value(state, depth):
+            v = -float('inf')
+            for action in state.getLegalActions(0):
+                successor = state.generateSuccessor(0, action)
+                v = max(v, value(successor, depth + 1))
+            return v
+
+        def min_value(state, depth):
+            agentIndex = depth % agentNum
+            values=[]
+            for action in state.getLegalActions(agentIndex):
+                successor = state.generateSuccessor(agentIndex, action)
+                values.append(value(successor, depth + 1))
+            v=sum(values)/len(values)
+            return v
+
+        bestScore = -float('inf')
+        bestAction = None
+        for action in gameState.getLegalActions(0):
+            successor = gameState.generateSuccessor(0, action)
+            score = value(successor, 1)
+            if score > bestScore:
+                bestScore = score
+                bestAction = action
+        return bestAction
+    
 def betterEvaluationFunction(currentGameState: GameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: <
+    改进后的评价函数：
+    - 当前得分作为基础。
+    - 减去剩余食物数量乘以一定惩罚，促使快速吃完食物。
+    - 根据离最近食物的距离给予奖励。
+    - 对幽灵状态进行评价：对受惊幽灵奖励（鼓励靠近），对非受惊幽灵在距离过近时严厉惩罚，
+      否则适当惩罚以保持安全距离。
+    - 如果存在能量豆，则奖励靠近能量豆的状态。>
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    score = currentGameState.getScore()
+    pacmanPos = currentGameState.getPacmanPosition()
+    foodList = currentGameState.getFood().asList()
+    ghostStates = currentGameState.getGhostStates()
+
+    # 惩罚剩余食物数量
+    score -= 4 * len(foodList)
+
+    # 食物奖励：距离最近的食物越近越好
+    if foodList:
+        minFoodDist = min(manhattanDistance(pacmanPos, food) for food in foodList)
+        score += 10.0 / (minFoodDist + 1)
+
+    # 幽灵评价
+    for ghost in ghostStates:
+        ghostPos = ghost.getPosition()
+        distGhost = manhattanDistance(pacmanPos, ghostPos)
+        if ghost.scaredTimer > 0:
+            # 受惊幽灵，奖励靠近以便吃掉
+            score += 200.0 / (distGhost + 1)
+        else:
+            # 非受惊幽灵：离得太近给予很大惩罚，否则轻微惩罚
+            if distGhost < 2:
+                score -= 500
+            else:
+                score -= 2.0 / (distGhost + 1)
+
+    # 如果存在能量豆，也考虑其影响
+    capsules = currentGameState.getCapsules()
+    if capsules:
+        minCapsuleDist = min(manhattanDistance(pacmanPos, cap) for cap in capsules)
+        score += 5.0 / (minCapsuleDist + 1)
+
+    return score
 
 # Abbreviation
 better = betterEvaluationFunction
