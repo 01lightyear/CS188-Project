@@ -80,8 +80,11 @@ class ReflexAgent(Agent):
             minFoodDist = min(manhattanDistance(newPos, food) for food in foodList)
             # 保证除数不为0，小心处理无穷大情况
             score += 10.0 / (minFoodDist + 1)
-
-        # 幽灵得分：受惊状态的幽灵奖励靠近，否则远离幽灵
+        if successorGameState.isWin():
+            score+=10000
+        if successorGameState.isLose():
+            score-=10000
+        #幽灵得分：受惊状态的幽灵奖励靠近，否则远离幽灵
         for ghostState in newGhostStates:
             ghostPos = ghostState.getPosition()
             distGhost = manhattanDistance(newPos, ghostPos)
@@ -319,7 +322,10 @@ def betterEvaluationFunction(currentGameState: GameState):
     if foodList:
         minFoodDist = min(manhattanDistance(pacmanPos, food) for food in foodList)
         score += 10.0 / (minFoodDist + 1)
-
+    if currentGameState.isWin():
+        score+=10000
+    if currentGameState.isLose():
+        score-=10000
     # 幽灵评价
     for ghost in ghostStates:
         ghostPos = ghost.getPosition()
