@@ -73,9 +73,30 @@ class ReflexAgent(Agent):
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
-
+        Ghostpos=successorGameState.getGhostPositions()
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        score=successorGameState.getScore()
+            # 食物得分：距离最近的食物越近越好
+        foodList = newFood.asList()
+        if foodList:
+            minFoodDist = min(manhattanDistance(newPos, food) for food in foodList)
+            # 保证除数不为0，小心处理无穷大情况
+            score += 10.0 / (minFoodDist + 1)
+
+        # 幽灵得分：受惊状态的幽灵奖励靠近，否则远离幽灵
+        for ghostState in newGhostStates:
+            ghostPos = ghostState.getPosition()
+            distGhost = manhattanDistance(newPos, ghostPos)
+            if ghostState.scaredTimer > 0:
+                # 幽灵受惊，靠近可以吃掉幽灵
+                score += 5.0 / (distGhost + 1)
+            else:
+                # 非受惊幽灵：如果离得很近则重罚，防止碰撞
+                if distGhost < 2:
+                    score -= 500
+                else:
+                    score -= 2.0 / (distGhost + 1)
+        return score
 
 def scoreEvaluationFunction(currentGameState: GameState):
     """
